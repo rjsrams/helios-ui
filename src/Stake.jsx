@@ -8,21 +8,11 @@ export default function Stake() {
   const [stakedAmount, setStakedAmount] = useState("0");
   const [contract, setContract] = useState(null);
 
-  const updateStakedAmount = async (addr, ctr) => {
-    try {
-      const result = await ctr.getStakedAmount(addr);
-      setStakedAmount(ethers.formatUnits(result, 18));
-    } catch (err) {
-      console.error("Update staked amount error:", err);
-    }
-  };
-
   const connectWallet = async () => {
     if (!window.ethereum) {
-      alert("Please install MetaMask");
+      alert("Please install MetaMask or Rabby");
       return;
     }
-
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
@@ -31,23 +21,17 @@ export default function Stake() {
 
       setWallet(address);
       setContract(ctr);
-
-      // ✅ Update awal
-      updateStakedAmount(address, ctr);
-
-      // ✅ Listener untuk event Staked & Withdrawn
-      ctr.on("Staked", (user, amount) => {
-        if (user.toLowerCase() === address.toLowerCase()) {
-          updateStakedAmount(address, ctr);
-        }
-      });
-      ctr.on("Withdrawn", (user, amount) => {
-        if (user.toLowerCase() === address.toLowerCase()) {
-          updateStakedAmount(address, ctr);
-        }
-      });
     } catch (err) {
       console.error("Connect wallet error:", err);
+    }
+  };
+
+  const updateStakedAmount = async () => {
+    try {
+      const result = await contract.getStakedAmount(wallet);
+      setStakedAmount(ethers.formatUnits(result, 18));
+    } catch (err) {
+      console.error("Update staked amount error:", err);
     }
   };
 
@@ -57,6 +41,7 @@ export default function Stake() {
       const tx = await contract.stake(ethers.parseUnits(amount, 18));
       await tx.wait();
       setAmount("");
+      updateStakedAmount();
     } catch (err) {
       console.error("Stake error:", err);
     }
@@ -68,6 +53,7 @@ export default function Stake() {
       const tx = await contract.withdraw(ethers.parseUnits(amount, 18));
       await tx.wait();
       setAmount("");
+      updateStakedAmount();
     } catch (err) {
       console.error("Withdraw error:", err);
     }
@@ -76,6 +62,12 @@ export default function Stake() {
   useEffect(() => {
     connectWallet();
   }, []);
+
+  useEffect(() => {
+    if (wallet && contract) {
+      updateStakedAmount();
+    }
+  }, [wallet, contract]);
 
   return (
     <div style={{ padding: "2rem", maxWidth: "500px", margin: "auto" }}>
