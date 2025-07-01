@@ -28,6 +28,7 @@ export default function Stake() {
 
   const updateStakedAmount = async () => {
     try {
+      if (!contract || !wallet) return;
       const result = await contract.getStakedAmount(wallet);
       setStakedAmount(ethers.formatUnits(result, 18));
     } catch (err) {
@@ -41,7 +42,6 @@ export default function Stake() {
       const tx = await contract.stake(ethers.parseUnits(amount, 18));
       await tx.wait();
       setAmount("");
-      updateStakedAmount();
     } catch (err) {
       console.error("Stake error:", err);
     }
@@ -53,7 +53,6 @@ export default function Stake() {
       const tx = await contract.withdraw(ethers.parseUnits(amount, 18));
       await tx.wait();
       setAmount("");
-      updateStakedAmount();
     } catch (err) {
       console.error("Withdraw error:", err);
     }
@@ -64,10 +63,24 @@ export default function Stake() {
   }, []);
 
   useEffect(() => {
-    if (wallet && contract) {
-      updateStakedAmount();
-    }
-  }, [wallet, contract]);
+    if (!contract || !wallet) return;
+
+    updateStakedAmount();
+
+    const stakeListener = (user, amount) => {
+      if (user.toLowerCase() === wallet.toLowerCase()) {
+        updateStakedAmount();
+      }
+    };
+
+    contract.on("Staked", stakeListener);
+    contract.on("Withdrawn", stakeListener);
+
+    return () => {
+      contract.off("Staked", stakeListener);
+      contract.off("Withdrawn", stakeListener);
+    };
+  }, [contract, wallet]);
 
   return (
     <div style={{ padding: "2rem", maxWidth: "500px", margin: "auto" }}>
